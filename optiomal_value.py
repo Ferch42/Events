@@ -4,10 +4,11 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 import random
 
-N = 30
+N = 50
 n_exp = 100_000
-ep_length = 60
-gamma = 0.99
+ep_length = 150
+gamma = 0.9
+gamma_2 = 1
 EPSILON_DECAY = 0.9995
 
 action_dict = {i:v for i,v in enumerate([np.array([1,0]),np.array([0,1]), np.array([-1,0]),np.array([0,-1])])}
@@ -115,7 +116,7 @@ def get_utility():
 				q[i][j] = np.min(prob_list[i][j])
 			
 
-	U = np.power(2, n-1)*(1 + q)*np.power((1/(gamma**10)),n-1)
+	U = np.power(2, n-1)*(1 + q)*np.power((1/(gamma**30)),n-1)
 
 	return U
 
@@ -140,7 +141,7 @@ def get_state_utility(s):
 	else:
 		q = 0
 
-	U = (2 **(n-1))*(1 + q)*((1/(gamma**10))**(n-1))
+	U = (2 **(n-1))*(1 + q)*((1/(gamma**30))**(n-1))
 
 	return U
 
@@ -148,6 +149,7 @@ def get_state_utility(s):
 episode_completion = {i: np.zeros(n_exp) for i in range(len(SALIENT_POINTS))}
 exit_point_list = []
 subotimality_value_list = []
+exit_point_distance_list = []
 
 
 for e in tqdm(range(n_exp)):
@@ -161,9 +163,9 @@ for e in tqdm(range(n_exp)):
 	for t in range(ep_length):
 
 		a = None
-		if np.random.uniform()<0.1:
+		if np.random.uniform()<0:
 
-			a = np.random.randint(5)
+			a = np.random.randint(4)
 		else:
 			max_q = Q_EXPLORER[*s].max()
 
@@ -190,8 +192,8 @@ for e in tqdm(range(n_exp)):
 
 		path.append((s,executed_action,ss))
 
-		Q_EXPLORER[*s][executed_action] = Q_EXPLORER[*s][executed_action] + (r + (1-terminal) * gamma * np.max(Q_EXPLORER[*ss]) - Q_EXPLORER[*s][executed_action])
-
+		Q_EXPLORER[*s][executed_action] = Q_EXPLORER[*s][executed_action] + (gamma_2 * np.max(Q_EXPLORER[*ss]) - Q_EXPLORER[*s][executed_action])
+		Q_EXPLORER[*s][4] = Q_EXPLORER[*s][4] + (get_state_utility(s)  - Q_EXPLORER[*s][4])
 
 		s = ss
 
@@ -219,6 +221,10 @@ for e in tqdm(range(n_exp)):
 
 	subotimality_value = sum([(np.nan_to_num(OPTIMAL_EVENT_VALUE[i])-np.nan_to_num(EVENT_VALUE[i])).sum() for i in range(len(SALIENT_POINTS))])
 	subotimality_value_list.append(subotimality_value)
+	exit_point_distance_list.append(sum([np.sqrt((p**2 -exit_point_list[-1]**2).sum()) for p in SALIENT_POINTS]))
+	if e%10_000==0:
+		print(np.mean(subotimality_value_list[-10_000:]))
+		print(np.mean(exit_point_distance_list[-10_000:]))
 
 
 U  = get_utility()
